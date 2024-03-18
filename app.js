@@ -18,15 +18,15 @@ var applePayUiController = (function () {
 })()
 
 var applePayController = (function (uiController) {
-  var BACKEND_URL_VALIDATE_SESSION = 'https://2506e23df891.ngrok.app/v1/payment-methods/validate-apple-pay-session'
-  var BACKEND_URL_PAY = 'https://2506e23df891.ngrok.app/pay'
+  var BACKEND_URL_VALIDATE_SESSION = 'https://4d5f36b23abc.ngrok.app/v1/payment-methods/validate-apple-pay-session'
+  var BACKEND_URL_PAY = 'https://4d5f36b23abc.ngrok.app/v1/payment-methods/complete-payment'
 
   /**
    * Checks if Apple Pay is possible in the current environment.
    * @return {boolean} Boolean to check if Apple Pay is possible
    */
   var _applePayAvailable = function () {
-    return window.ApplePaySession && ApplePaySession.canMakePaymentsWithActiveCard("merchant.crypto.local.sardine.ai")
+    return window.ApplePaySession && ApplePaySession.canMakePayments()
   }
 
   /**
@@ -45,6 +45,7 @@ var applePayController = (function (uiController) {
     })
     _handleApplePayEvents(applePaySession)
     applePaySession.begin()
+    console.log("Done sesssion")
   }
 
   /**
@@ -73,28 +74,6 @@ var applePayController = (function (uiController) {
     return response.data
   }
 
-  /**
-   * This method returns the available payment methods for a certain region. You can add
-   * your business logic here to determine the shipping methods you need.
-   *
-   * @param {string} 2 Letter ISO of the region
-   *
-   * @return {Array} An array of shipping methods
-   *
-   */
-  var _getAvailableShippingMethods = function (region) {
-    // return the shipping methods available based on region
-    if (region === 'US') {
-      return { methods: config.shipping.US_region }
-    } else {
-      return { methods: config.shipping.WORLDWIDE_region }
-    }
-  }
-
-  var _calculateTotal = function (subtotal, shipping) {
-    return (parseFloat(subtotal) + parseFloat(shipping)).toFixed(2)
-  }
-
   // here we talk to our backend to send the Apple Pay Payload and return the transaction outcome
   var _performTransaction = function (details, callback) {
     // I'm using AXIOS to do a POST request to the backend but any HTTP client can be used
@@ -102,10 +81,7 @@ var applePayController = (function (uiController) {
       .post(
         BACKEND_URL_PAY,
         {
-          token: details.token,
-          customerEmail: details.shippingContact.emailAddress,
-          billingDetails: details.billingContact,
-          shippingDetails: details.shippingContact
+          details: details
         },
         {
           headers: { 'Access-Control-Allow-Origin': '*' }
@@ -129,6 +105,7 @@ var applePayController = (function (uiController) {
     // Apple Pay Session from your Back-End
     appleSession.onvalidatemerchant = async function (event) {
       console.log("Validating sessions!")
+      debugger;
       try {
         const merchantSession = await _validateApplePaySession(event.validationURL);
         console.log(merchantSession)
@@ -144,15 +121,13 @@ var applePayController = (function (uiController) {
     // details about the customer (email, address ...) you also get the Apple Pay payload
     // needed to perform a payment.
     appleSession.onpaymentauthorized = function (event) {
-      debugger;
       console.log("doing payment")
+      console.log(event.payment)
       _performTransaction(event.payment, function (outcome) {
         if (outcome.approved) {
-          debugger;
           appleSession.completePayment(ApplePaySession.STATUS_SUCCESS)
           console.log(outcome)
         } else {
-          debugger;
           appleSession.completePayment(ApplePaySession.STATUS_FAILURE)
           console.log(outcome)
         }
